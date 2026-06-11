@@ -1,0 +1,50 @@
+# 后端生产 Dockerfile
+# build context = ../server （由 docker-compose.prod.yml 指定）
+# 所有 COPY 路径基于 server/ 根目录
+
+# ── Stage 1: build ────────────────────────────────────────────
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+
+# 仅复制依赖描述以利用缓存
+COPY package.json pnpm-lock.yaml ./
+# pnpm-workspace.yaml 会让 pnpm 进入 workspace 模式，单体 server 镜像不需要
+# 故意不复制；如存在请确认其影响
+
+RUN pnpm install --frozen-lockfile
+
+COPY tsconfig.json tsconfig.build.json nest-cli.json ./
+COPY src ./src
+
+RUN pnpm build
+
+# 剪掉 dev 依赖
+RUN pnpm prune --prod
+
+# ── Stage 2: runtime ──────────────────────────────────────────
+FROM node:20-alpine AS runtime
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+RUN apk add --no-cache tini && \
+    addgroup -S app && adduser -S app -G app
+
+COPY --from=builder --chown=app:app /app/node_modules ./node_modules
+COPY --from=builder --chown=app:app /app/dist ./dist
+COPY --from=builder --chown=app:app /app/package.json ./package.json
+
+# 运行时还需要 ts-node 跑 migration / seed，由于 prune 已经去掉了，故复制 src 以便 seed 用编译产物
+# seed 已编译进 dist
+RUN mkdir -p /app/uploads && chown -R app:app /app/uploads
+
+USER app
+
+EXPOSE 3001
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "dist/main.js"]

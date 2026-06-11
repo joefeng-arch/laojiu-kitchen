@@ -1,0 +1,12 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] },
+    "lib": ["esnext", "dom"],
+    "types": ["@dcloudio/types"]
+  },
+  "vueCompilerOptions": { "plugins": ["@dcloudio/uni-cli-shared/lib/vue/uni-h5"] },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"]
+}

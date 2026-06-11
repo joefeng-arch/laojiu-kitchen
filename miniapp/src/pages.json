@@ -1,0 +1,31 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/shell/shell",
+      "style": {
+        "navigationBarTitleText": "老舅厨房",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/policy/policy",
+      "style": {
+        "navigationBarTitleText": "条款与政策",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationBarTextStyle": "black"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "老舅厨房",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#fcf9f8"
+  }
+}
