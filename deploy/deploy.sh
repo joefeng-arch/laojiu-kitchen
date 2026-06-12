@@ -23,8 +23,8 @@ REPO_ROOT=$(cd "$DEPLOY_DIR/.." && pwd)
 SERVER_DIR="$REPO_ROOT/server"
 FRONT_DIR="$REPO_ROOT/frontend"
 
-NGINX_AVAILABLE=/etc/nginx/sites-available/laojiukitchen.cn.conf
-NGINX_ENABLED=/etc/nginx/sites-enabled/laojiukitchen.cn.conf
+# nginx.conf 只 include conf.d/*.conf，不 include sites-enabled/
+NGINX_CONF=/etc/nginx/conf.d/laojiukitchen.cn.conf
 LANDING_DIR=/var/www/laojiukitchen-landing
 ADMIN_WWW=/var/www/laojiukitchen-admin
 DATA_ROOT=/var/lib/laojiu-kitchen
@@ -81,10 +81,9 @@ systemctl enable fail2ban
 systemctl restart fail2ban
 
 # ── 6. 部署 Nginx 配置 ──────────────────────────────────────
-log "6/15 安装 nginx 站点配置（restart，非 reload）"
-cp "$DEPLOY_DIR/nginx/laojiukitchen.cn.conf" "$NGINX_AVAILABLE"
-ln -sf "$NGINX_AVAILABLE" "$NGINX_ENABLED"
-rm -f /etc/nginx/sites-enabled/default
+log "6/15 安装 nginx 站点配置到 conf.d（restart，非 reload）"
+cp "$DEPLOY_DIR/nginx/laojiukitchen.cn.conf" "$NGINX_CONF"
+rm -f /etc/nginx/conf.d/default.conf /etc/nginx/sites-enabled/default
 nginx -t
 systemctl enable nginx
 systemctl restart nginx
