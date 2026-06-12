@@ -29,8 +29,9 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Uploads
-uploads/
+# Uploads (runtime files only — do NOT match src/modules/uploads/ business module)
+/server/uploads/
+/uploads/
 
 # Coverage
 coverage/
