@@ -14,6 +14,8 @@ build/
 .env*.local
 !.env.example
 !.env.production.example
+# frontend/.env.production 只含公开的 API URL，允许提交
+!frontend/.env.production
 
 # IDE
 .idea/
