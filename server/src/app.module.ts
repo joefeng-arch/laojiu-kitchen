@@ -20,8 +20,10 @@ import { ShareModule } from './modules/share/share.module';
 import { ShoppingListModule } from './modules/shopping-list/shopping-list.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { UsersModule } from './modules/users/users.module';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
