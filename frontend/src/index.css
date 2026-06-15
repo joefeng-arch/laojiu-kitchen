@@ -61,6 +61,10 @@ body {
   border-radius: 0.5rem;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
+/* Inside flex rows, let flex/width utilities control sizing */
+.flex > .form-input {
+  width: auto;
+}
 .form-input:focus {
   outline: none;
   border-color: #f97316;
