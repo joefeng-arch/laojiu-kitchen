@@ -705,7 +705,7 @@ function CreateRecipeTab({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-5xl">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-lg font-bold text-gray-800">发布官方菜谱</h2>
         <span className="text-[10px] text-gray-400">作者: 老舅官方 · 自动公开+推荐</span>
