@@ -785,17 +785,17 @@ function CreateRecipeTab({ onDone }: { onDone: () => void }) {
             </div>
             <div className="space-y-2">
               {ingredients.map((ing, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input style={{width:"auto",flex:"2 1 0%",minWidth:120}} className="form-input" placeholder="食材名称" value={ing.customName} onChange={(e) => updateIngredient(i, "customName", e.target.value)} />
-                  <input style={{width:64,flexShrink:0}} className="form-input" placeholder="用量" value={ing.amount} onChange={(e) => updateIngredient(i, "amount", e.target.value)} />
-                  <input style={{width:56,flexShrink:0}} className="form-input" placeholder="单位" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} />
-                  <select style={{width:72,flexShrink:0}} className="form-input" value={ing.groupName} onChange={(e) => updateIngredient(i, "groupName", e.target.value)}>
+                <div key={i} className="grid gap-2" style={{gridTemplateColumns:"1fr 70px 60px 80px 90px 24px"}}>
+                  <input className="form-input" placeholder="食材名称" value={ing.customName} onChange={(e) => updateIngredient(i, "customName", e.target.value)} />
+                  <input className="form-input" placeholder="用量" value={ing.amount} onChange={(e) => updateIngredient(i, "amount", e.target.value)} />
+                  <input className="form-input" placeholder="单位" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} />
+                  <select className="form-input" value={ing.groupName} onChange={(e) => updateIngredient(i, "groupName", e.target.value)}>
                     <option value="主料">主料</option><option value="腌料">腌料</option><option value="配料">配料</option><option value="调料">调料</option>
                   </select>
-                  <select style={{width:80,flexShrink:0}} className="form-input" value={ing.scaleType} onChange={(e) => updateIngredient(i, "scaleType", e.target.value)}>
+                  <select className="form-input" value={ing.scaleType} onChange={(e) => updateIngredient(i, "scaleType", e.target.value)}>
                     <option value="linear">等比</option><option value="sub_linear">亚线性</option><option value="fixed">固定</option>
                   </select>
-                  {ingredients.length > 1 && <button onClick={() => removeIngredient(i)} className="text-gray-300 hover:text-red-500" style={{flexShrink:0}}><X className="w-4 h-4" /></button>}
+                  {ingredients.length > 1 ? <button onClick={() => removeIngredient(i)} className="text-gray-300 hover:text-red-500 self-center"><X className="w-4 h-4" /></button> : <span />}
                 </div>
               ))}
             </div>
