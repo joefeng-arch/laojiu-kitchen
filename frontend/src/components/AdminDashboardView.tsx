@@ -428,15 +428,15 @@ function RecipeDetailModal({ id, onClose, onEdit }: { id: string; onClose: () =>
 
 // ── Recipe Edit Modal ───────────────────────────────────────
 function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => void; onSaved: () => void }) {
-  const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
   const [form, setForm] = useState<any>({});
+  const [ingredients, setIngredients] = useState<any[]>([]);
+  const [steps, setSteps] = useState<any[]>([]);
 
   useEffect(() => {
     adminApi.getRecipeDetail(id).then((d) => {
-      setData(d);
       setForm({
         title: d.title, description: d.description ?? "", difficulty: d.difficulty,
         baseServings: d.baseServings, totalMinutes: d.totalMinutes ?? "",
@@ -444,8 +444,28 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
         tags: (d.tags ?? []).join(", "),
         coverImage: d.coverImage ?? "",
       });
+      setIngredients((d.ingredients ?? []).map((i: any) => ({
+        ingredientId: i.ingredientId ?? null,
+        customName: i.customName ?? i.ingredientName ?? i.name ?? "",
+        amount: String(i.amount ?? ""),
+        unit: i.unit ?? "g",
+        scaleType: i.scaleType ?? "linear",
+        groupName: i.groupName ?? "主料",
+      })));
+      setSteps((d.steps ?? []).map((s: any) => ({
+        stepNumber: s.stepNumber,
+        description: s.description ?? "",
+        tips: s.tips ?? "",
+      })));
     }).catch(console.error).finally(() => setLoading(false));
   }, [id]);
+
+  const addIngredient = () => setIngredients([...ingredients, { ingredientId: null, customName: "", amount: "", unit: "g", scaleType: "linear", groupName: "主料" }]);
+  const removeIngredient = (i: number) => setIngredients(ingredients.filter((_, idx) => idx !== i));
+  const updateIngredient = (i: number, f: string, v: any) => { const n = [...ingredients]; n[i] = { ...n[i], [f]: v }; setIngredients(n); };
+  const addStep = () => setSteps([...steps, { stepNumber: steps.length + 1, description: "", tips: "" }]);
+  const removeStep = (i: number) => setSteps(steps.filter((_, idx) => idx !== i).map((s, idx) => ({ ...s, stepNumber: idx + 1 })));
+  const updateStep = (i: number, f: string, v: any) => { const n = [...steps]; n[i] = { ...n[i], [f]: v }; setSteps(n); };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -463,6 +483,7 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
   };
 
   const handleSave = async () => {
+    if (!form.title?.trim()) return alert("请输入菜谱标题");
     setSaving(true);
     try {
       await adminApi.updateRecipe(id, {
@@ -472,6 +493,14 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
         status: form.status, isFeatured: form.isFeatured, isPublic: form.isPublic,
         coverImage: form.coverImage || undefined,
         tags: form.tags ? form.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
+        ingredients: ingredients.filter(i => i.customName.trim()).map((i, idx) => ({
+          ingredientId: i.ingredientId ?? undefined,
+          customName: i.customName, amount: String(i.amount), unit: i.unit,
+          scaleType: i.scaleType, groupName: i.groupName, sort: idx,
+        })),
+        steps: steps.filter(s => s.description.trim()).map((s, idx) => ({
+          stepNumber: idx + 1, description: s.description, tips: s.tips || undefined,
+        })),
       });
       onSaved();
     } catch (e: any) { alert(e?.message ?? "保存失败"); }
@@ -480,7 +509,7 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {loading ? <div className="p-10"><LoadingSpinner /></div> : (
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
@@ -522,11 +551,55 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
                 <FormField label="推荐"><input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })} /></FormField>
               </div>
               <FormField label="标签（逗号分隔）"><input className="form-input" value={form.tags ?? ""} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></FormField>
+
+              {/* 用料 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-bold text-gray-700">用料</h4>
+                  <button onClick={addIngredient} className="text-[10px] text-orange-500 hover:text-orange-600 font-semibold">+ 添加食材</button>
+                </div>
+                <div className="space-y-2">
+                  {ingredients.map((ing, i) => (
+                    <div key={i} className="grid gap-2" style={{gridTemplateColumns:"1fr 70px 60px 80px 90px 24px"}}>
+                      <input className="form-input" placeholder="食材名称" value={ing.customName} onChange={(e) => updateIngredient(i, "customName", e.target.value)} />
+                      <input className="form-input" placeholder="用量" value={ing.amount} onChange={(e) => updateIngredient(i, "amount", e.target.value)} />
+                      <input className="form-input" placeholder="单位" value={ing.unit} onChange={(e) => updateIngredient(i, "unit", e.target.value)} />
+                      <select className="form-input" value={ing.groupName} onChange={(e) => updateIngredient(i, "groupName", e.target.value)}>
+                        <option value="主料">主料</option><option value="腌料">腌料</option><option value="配料">配料</option><option value="调料">调料</option>
+                      </select>
+                      <select className="form-input" value={ing.scaleType} onChange={(e) => updateIngredient(i, "scaleType", e.target.value)}>
+                        <option value="linear">等比</option><option value="sub_linear">亚线性</option><option value="fixed">固定</option>
+                      </select>
+                      {ingredients.length > 1 ? <button onClick={() => removeIngredient(i)} className="text-gray-300 hover:text-red-500 self-center"><X className="w-4 h-4" /></button> : <span />}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 步骤 */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-bold text-gray-700">步骤</h4>
+                  <button onClick={addStep} className="text-[10px] text-orange-500 hover:text-orange-600 font-semibold">+ 添加步骤</button>
+                </div>
+                <div className="space-y-3">
+                  {steps.map((step, i) => (
+                    <div key={i} className="flex gap-2">
+                      <div className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center shrink-0 mt-1">{i + 1}</div>
+                      <div className="flex-1 space-y-1">
+                        <textarea className="form-input" rows={2} placeholder={`步骤 ${i + 1} 描述…`} value={step.description} onChange={(e) => updateStep(i, "description", e.target.value)} />
+                        <input className="form-input" placeholder="小贴士（可选）" value={step.tips} onChange={(e) => updateStep(i, "tips", e.target.value)} />
+                      </div>
+                      {steps.length > 1 && <button onClick={() => removeStep(i)} className="text-gray-300 hover:text-red-500 mt-1"><X className="w-4 h-4" /></button>}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2 mt-6">
               <button onClick={onClose} className="px-4 py-2 text-xs text-gray-500 hover:text-gray-700">取消</button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">
+              <button onClick={handleSave} disabled={saving} className="px-6 py-2 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 font-semibold">
                 {saving ? "保存中…" : "保存"}
               </button>
             </div>
