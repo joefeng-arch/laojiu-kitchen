@@ -431,6 +431,7 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [form, setForm] = useState<any>({});
 
   useEffect(() => {
@@ -441,9 +442,25 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
         baseServings: d.baseServings, totalMinutes: d.totalMinutes ?? "",
         status: d.status, isFeatured: d.isFeatured, isPublic: d.isPublic,
         tags: (d.tags ?? []).join(", "),
+        coverImage: d.coverImage ?? "",
       });
     }).catch(console.error).finally(() => setLoading(false));
   }, [id]);
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCoverUploading(true);
+    try {
+      const url = await adminApi.uploadImage(file);
+      setForm((prev: any) => ({ ...prev, coverImage: url }));
+    } catch (err: any) {
+      alert(`封面图上传失败：${err?.message ?? "未知错误"}`);
+    } finally {
+      setCoverUploading(false);
+      e.target.value = "";
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -453,6 +470,7 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
         difficulty: form.difficulty, baseServings: Number(form.baseServings),
         totalMinutes: form.totalMinutes ? Number(form.totalMinutes) : undefined,
         status: form.status, isFeatured: form.isFeatured, isPublic: form.isPublic,
+        coverImage: form.coverImage || undefined,
         tags: form.tags ? form.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
       });
       onSaved();
@@ -473,6 +491,18 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
             <div className="space-y-3">
               <FormField label="标题"><input className="form-input" value={form.title ?? ""} onChange={(e) => setForm({ ...form, title: e.target.value })} /></FormField>
               <FormField label="描述"><textarea className="form-input" rows={2} value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></FormField>
+              <FormField label="封面图">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                    {form.coverImage ? <img src={absUrl(form.coverImage)} className="w-full h-full object-cover" /> : <BookOpen className="w-5 h-5 text-gray-300" />}
+                  </div>
+                  <label className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 text-gray-600">
+                    {coverUploading ? "上传中…" : (form.coverImage ? "重新上传" : "上传封面")}
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleCoverUpload} disabled={coverUploading} />
+                  </label>
+                  {form.coverImage && <button type="button" onClick={() => setForm({ ...form, coverImage: "" })} className="text-xs text-gray-400 hover:text-red-500">移除</button>}
+                </div>
+              </FormField>
               <div className="grid grid-cols-3 gap-3">
                 <FormField label="难度">
                   <select className="form-input" value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value })}>
