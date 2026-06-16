@@ -8,24 +8,32 @@ export class FixSnakeCaseColumns1779800000011 implements MigrationInterface {
   name = 'FixSnakeCaseColumns1779800000011';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    const renameIfNeeded = async (table: string, from: string, to: string) => {
+      const hasFrom = await queryRunner.hasColumn(table, from);
+      const hasTo = await queryRunner.hasColumn(table, to);
+      if (hasFrom && !hasTo) {
+        await queryRunner.query(`ALTER TABLE "${table}" RENAME COLUMN "${from}" TO "${to}"`);
+      }
+    };
+
     // share_codes table
-    await queryRunner.query(`ALTER TABLE share_codes RENAME COLUMN "short_code" TO "shortCode"`);
-    await queryRunner.query(`ALTER TABLE share_codes RENAME COLUMN "recipe_id" TO "recipeId"`);
-    await queryRunner.query(`ALTER TABLE share_codes RENAME COLUMN "qrcode_url" TO "qrcodeUrl"`);
-    await queryRunner.query(`ALTER TABLE share_codes RENAME COLUMN "created_at" TO "createdAt"`);
+    await renameIfNeeded('share_codes', 'short_code', 'shortCode');
+    await renameIfNeeded('share_codes', 'recipe_id', 'recipeId');
+    await renameIfNeeded('share_codes', 'qrcode_url', 'qrcodeUrl');
+    await renameIfNeeded('share_codes', 'created_at', 'createdAt');
 
     // meal_plans table
-    await queryRunner.query(`ALTER TABLE meal_plans RENAME COLUMN "user_id" TO "userId"`);
-    await queryRunner.query(`ALTER TABLE meal_plans RENAME COLUMN "plan_date" TO "planDate"`);
-    await queryRunner.query(`ALTER TABLE meal_plans RENAME COLUMN "meal_type" TO "mealType"`);
-    await queryRunner.query(`ALTER TABLE meal_plans RENAME COLUMN "recipe_id" TO "recipeId"`);
-    await queryRunner.query(`ALTER TABLE meal_plans RENAME COLUMN "created_at" TO "createdAt"`);
+    await renameIfNeeded('meal_plans', 'user_id', 'userId');
+    await renameIfNeeded('meal_plans', 'plan_date', 'planDate');
+    await renameIfNeeded('meal_plans', 'meal_type', 'mealType');
+    await renameIfNeeded('meal_plans', 'recipe_id', 'recipeId');
+    await renameIfNeeded('meal_plans', 'created_at', 'createdAt');
 
     // Recreate indexes with new column names
     await queryRunner.query(`DROP INDEX IF EXISTS "IDX_share_codes_recipe_id"`);
-    await queryRunner.query(`CREATE INDEX "IDX_share_codes_recipeId" ON share_codes ("recipeId")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_share_codes_recipeId" ON share_codes ("recipeId")`);
     await queryRunner.query(`DROP INDEX IF EXISTS idx_meal_plans_user_date`);
-    await queryRunner.query(`CREATE INDEX "IDX_meal_plans_userId_planDate" ON meal_plans ("userId", "planDate")`);
+    await queryRunner.query(`CREATE INDEX IF NOT EXISTS "IDX_meal_plans_userId_planDate" ON meal_plans ("userId", "planDate")`);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
