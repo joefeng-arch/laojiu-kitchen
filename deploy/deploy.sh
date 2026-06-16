@@ -50,7 +50,7 @@ docker compose version >/dev/null || die "缺少 docker compose plugin"
 log "3/15 创建数据目录"
 mkdir -p "$DATA_ROOT/pgdata" "$DATA_ROOT/redisdata" "$DATA_ROOT/uploads"
 mkdir -p "$LANDING_DIR" "$ADMIN_WWW" /var/www/certbot
-chown -R 999:999 "$DATA_ROOT/pgdata"       # postgres 容器内 uid
+chown -R 70:70 "$DATA_ROOT/pgdata"         # postgres:*-alpine 容器内 uid/gid
 chown -R 999:999 "$DATA_ROOT/redisdata"    # redis    容器内 uid
 chown -R 1000:1000 "$DATA_ROOT/uploads"    # node     容器内 uid (alpine app user 创建时取得)
 
