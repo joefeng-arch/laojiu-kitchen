@@ -159,6 +159,10 @@ for i in $(seq 1 30); do
     [ $i -eq 30 ] && warn "API 30 次健康检查仍未通过，请 docker logs ujk-api 排查"
 done
 
+# ── 12.5. 运行数据库迁移 ───────────────────────────────────
+log "12.5/15 执行数据库迁移"
+docker exec ujk-api node ./node_modules/typeorm/cli.js migration:run -d dist/config/typeorm.datasource.js
+
 # ── 13. 运行 seed ──────────────────────────────────────────
 log "13/15 执行数据库 seed（首次部署）"
 docker exec ujk-api node dist/database/seeds/run-seeds.js || warn "seed 执行失败或已 seed 过"

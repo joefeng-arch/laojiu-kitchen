@@ -5,7 +5,7 @@ export class CreateAdminUsers1779800000008 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TABLE admin_users (
+      CREATE TABLE IF NOT EXISTS admin_users (
         id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         username       VARCHAR(64) UNIQUE NOT NULL,
         password_hash  VARCHAR(255) NOT NULL,

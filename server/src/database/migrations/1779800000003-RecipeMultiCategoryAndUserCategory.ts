@@ -14,7 +14,7 @@ export class RecipeMultiCategoryAndUserCategory1779800000003
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // categories.ownerId
-    await queryRunner.query(`ALTER TABLE "categories" ADD COLUMN "ownerId" uuid`);
+    await queryRunner.query(`ALTER TABLE "categories" ADD COLUMN IF NOT EXISTS "ownerId" uuid`);
 
     // 旧唯一索引 → 新唯一索引
     await queryRunner.query(
@@ -33,22 +33,22 @@ export class RecipeMultiCategoryAndUserCategory1779800000003
       await queryRunner.query(`DROP INDEX IF EXISTS "${row.indexname}"`);
     }
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "IDX_categories_type_owner_name" ON "categories" ("type", "ownerId", "name")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "IDX_categories_type_owner_name" ON "categories" ("type", "ownerId", "name")`,
     );
 
     // recipe_categories 关联表
     await queryRunner.query(`
-      CREATE TABLE "recipe_categories" (
+      CREATE TABLE IF NOT EXISTS "recipe_categories" (
         "id" SERIAL PRIMARY KEY,
         "recipeId" uuid NOT NULL,
         "categoryId" integer NOT NULL
       )
     `);
     await queryRunner.query(
-      `CREATE UNIQUE INDEX "IDX_recipe_categories_recipe_category" ON "recipe_categories" ("recipeId", "categoryId")`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS "IDX_recipe_categories_recipe_category" ON "recipe_categories" ("recipeId", "categoryId")`,
     );
     await queryRunner.query(
-      `CREATE INDEX "IDX_recipe_categories_categoryId" ON "recipe_categories" ("categoryId")`,
+      `CREATE INDEX IF NOT EXISTS "IDX_recipe_categories_categoryId" ON "recipe_categories" ("categoryId")`,
     );
 
     // 回填：把现有 recipes.categoryId 数据复制到关联表
