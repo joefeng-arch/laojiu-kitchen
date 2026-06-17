@@ -205,13 +205,42 @@ export class AdminService {
     };
   }
 
-  async createOfficialRecipe(dto: AdminCreateOfficialRecipeDto) {
-    // Find the 老舅官方 virtual user
-    const officialUser = await this.users
+  /** 查找「老舅官方」虚拟用户（openid 为空、昵称为 老舅官方） */
+  private async findOfficialUser() {
+    return this.users
       .createQueryBuilder('u')
       .where('u.openid IS NULL')
       .andWhere('u.nickname = :name', { name: '老舅官方' })
       .getOne();
+  }
+
+  /** 读取官方账号信息（用于管理后台展示/设置头像） */
+  async getOfficialUser() {
+    const official = await this.findOfficialUser();
+    if (!official) {
+      throw new BadRequestException(
+        '系统用户"老舅官方"不存在，请先运行 seed 创建该虚拟用户',
+      );
+    }
+    return { id: official.id, nickname: official.nickname, avatar: official.avatar };
+  }
+
+  /** 设置官方账号头像 */
+  async setOfficialAvatar(avatar: string) {
+    const official = await this.findOfficialUser();
+    if (!official) {
+      throw new BadRequestException(
+        '系统用户"老舅官方"不存在，请先运行 seed 创建该虚拟用户',
+      );
+    }
+    official.avatar = avatar || null;
+    await this.users.save(official);
+    return { id: official.id, nickname: official.nickname, avatar: official.avatar };
+  }
+
+  async createOfficialRecipe(dto: AdminCreateOfficialRecipeDto) {
+    // Find the 老舅官方 virtual user
+    const officialUser = await this.findOfficialUser();
 
     if (!officialUser) {
       throw new BadRequestException(

@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, JwtUserPayload } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import {
   CreateRecipeDto,
   ListRecipesDto,
@@ -34,15 +35,17 @@ export class RecipesController {
   ) {}
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: '菜谱列表（分页 + 多筛选）' })
-  list(@Query() query: ListRecipesDto) {
-    return this.service.list(query);
+  list(@Query() query: ListRecipesDto, @CurrentUser() user?: JwtUserPayload) {
+    return this.service.list(query, user?.sub ?? null);
   }
 
   @Get(':id')
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: '菜谱详情（含用料、步骤）' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user?: JwtUserPayload) {
+    return this.service.findOne(id, user?.sub ?? null);
   }
 
   @Get(':id/scale')

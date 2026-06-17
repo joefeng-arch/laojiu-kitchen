@@ -54,13 +54,14 @@ const info = uni.getSystemInfoSync();
 const isDevtools = info.platform === "devtools";
 
 const PROD_H5_URL: string = (import.meta.env?.VITE_H5_BASE_URL as string) ?? "";
+const PROD_API_URL: string = (import.meta.env?.VITE_API_BASE_URL as string) ?? "";
 const LAN_IP: string = (import.meta.env?.VITE_LAN_IP as string) ?? "192.168.1.100";
 
 const HOST = isDevtools ? "localhost" : LAN_IP;
 const H5_BASE_URL = PROD_H5_URL || `http://${HOST}:3000`;
-const API_BASE_URL = PROD_H5_URL
+const API_BASE_URL = PROD_API_URL || (PROD_H5_URL
   ? `${PROD_H5_URL.replace(/\/$/, "")}/api`
-  : `http://${HOST}:3001/api`;
+  : `http://${HOST}:3001/api`);
 
 // ── 隐私同意状态 ──────────────────────────────────────────────
 const CONSENT_KEY = "privacy_agreed_v1";

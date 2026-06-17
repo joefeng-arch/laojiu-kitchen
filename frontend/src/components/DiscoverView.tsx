@@ -82,6 +82,10 @@ export default function DiscoverView({ onSelectRecipe }: DiscoverViewProps) {
   const handleToggleFavorite = async (e: React.MouseEvent, recipeId: string) => {
     e.stopPropagation();
     const isFav = favorites.includes(recipeId);
+    // 乐观更新收藏数
+    setRecipes((prev) => prev.map((r) => r.id === recipeId
+      ? { ...r, favoriteCount: Math.max(0, (r.favoriteCount ?? 0) + (isFav ? -1 : 1)) }
+      : r));
     try {
       if (isFav) {
         await api.removeFavorite(recipeId);
@@ -92,6 +96,10 @@ export default function DiscoverView({ onSelectRecipe }: DiscoverViewProps) {
       }
     } catch (err) {
       console.error(err);
+      // 失败回滚
+      setRecipes((prev) => prev.map((r) => r.id === recipeId
+        ? { ...r, favoriteCount: Math.max(0, (r.favoriteCount ?? 0) + (isFav ? 1 : -1)) }
+        : r));
     }
   };
 

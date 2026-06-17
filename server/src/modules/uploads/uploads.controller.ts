@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  Logger,
   Post,
   UploadedFile,
   UseGuards,
@@ -10,9 +11,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname, join, isAbsolute } from 'path';
 import { randomUUID } from 'crypto';
-import { existsSync, mkdirSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 import { ContentCheckService } from '../content/content.service';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
@@ -26,6 +27,8 @@ if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
 @UseGuards(AuthGuard(['jwt', 'admin-jwt']))  // 用户 token 和管理员 token 都放行
 @Controller('uploads')
 export class UploadsController {
+  private readonly logger = new Logger(UploadsController.name);
+
   constructor(private readonly contentCheck: ContentCheckService) {}
 
   @Post('image')
@@ -52,14 +55,21 @@ export class UploadsController {
   async upload(@UploadedFile() file: any) {
     if (!file) throw new BadRequestException('未收到文件');
 
-    const filePath = join(process.cwd(), UPLOAD_DIR, file.filename);
+    // UPLOAD_DIR 可能是绝对路径（生产）或相对路径（开发），分别处理
+    const filePath = isAbsolute(UPLOAD_DIR)
+      ? join(UPLOAD_DIR, file.filename)
+      : join(process.cwd(), UPLOAD_DIR, file.filename);
 
     // 内容安全检查（开发环境自动跳过）
-    const check = await this.contentCheck.checkImage(filePath);
-    if (!check.safe) {
-      // 删除违规文件，不保留在服务器
-      try { unlinkSync(filePath); } catch { /* ignore */ }
-      throw new BadRequestException('图片包含违规内容，请更换后重新上传');
+    // 注意：微信同步版 img_sec_check 已弃用且对头像/封面误报率高，
+    // 因此图片检查仅记录告警、不硬阻断上传（文本检查仍严格把关）。
+    try {
+      const check = await this.contentCheck.checkImage(filePath);
+      if (!check.safe) {
+        this.logger.warn(`图片内容检查未通过（仅记录，不阻断）: ${file.filename} reason=${check.reason ?? '?'}`);
+      }
+    } catch (e: any) {
+      this.logger.warn(`图片内容检查异常（忽略）: ${e?.message}`);
     }
 
     return {

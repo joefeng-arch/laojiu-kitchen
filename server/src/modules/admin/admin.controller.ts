@@ -69,6 +69,21 @@ export class AdminController {
     return this.service.stats();
   }
 
+  /* ─────────────────── Official user（老舅官方）─────────────────── */
+
+  @Get('official-user')
+  @ApiOperation({ summary: '获取官方账号信息（含头像）' })
+  getOfficialUser() {
+    return this.service.getOfficialUser();
+  }
+
+  @Patch('official-user/avatar')
+  @ApiOperation({ summary: '设置官方账号头像' })
+  setOfficialAvatar(@Body() body: { avatar: string }) {
+    if (!body?.avatar) throw new BadRequestException('缺少 avatar');
+    return this.service.setOfficialAvatar(body.avatar);
+  }
+
   /* ─────────────────── Recipes ─────────────────── */
 
   @Get('recipes')

@@ -160,6 +160,104 @@ function DashboardTab() {
           </div>
         ))}
       </div>
+
+      {/* 官方账号头像设置 */}
+      <OfficialUserCard />
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════
+// Official user avatar setting (老舅官方)
+// ═════════════════════════════════════════════════════════════
+function OfficialUserCard() {
+  const [official, setOfficial] = useState<{ id: string; nickname: string; avatar: string | null } | null>(null);
+  const [avatar, setAvatar] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    adminApi.getOfficialUser()
+      .then((u) => { setOfficial(u); setAvatar(u.avatar ?? ""); })
+      .catch((e) => console.error("加载官方账号失败", e));
+  }, []);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const url = await adminApi.uploadImage(file);
+      setAvatar(url);
+    } catch (err: any) {
+      alert(err?.message ?? "上传失败");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleSave = async () => {
+    if (!avatar) { alert("请先上传头像图片"); return; }
+    setSaving(true);
+    try {
+      const updated = await adminApi.setOfficialAvatar(avatar);
+      setOfficial(updated);
+      setAvatar(updated.avatar ?? "");
+      alert("官方头像已更新！");
+    } catch (err: any) {
+      alert(err?.message ?? "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changed = official ? (avatar !== (official.avatar ?? "")) : false;
+
+  return (
+    <div className="mt-6 bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+      <h3 className="text-sm font-bold text-gray-800 mb-1">官方账号设置</h3>
+      <p className="text-[11px] text-gray-400 mb-4">「老舅官方」是所有官方菜谱的作者，设置头像后会显示在发现页菜谱卡片上。</p>
+
+      {!official ? (
+        <p className="text-xs text-gray-400">加载中…（如提示不存在，请先运行 seed 创建官方用户）</p>
+      ) : (
+        <div className="flex items-center gap-4">
+          {/* 头像预览 */}
+          <div className="w-16 h-16 rounded-full overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center shrink-0">
+            {avatar ? (
+              <img src={absUrl(avatar)} className="w-full h-full object-cover" />
+            ) : (
+              <Users className="w-7 h-7 text-gray-300" />
+            )}
+          </div>
+
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-gray-700">{official.nickname}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              >
+                {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                {uploading ? "上传中…" : "上传头像"}
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !changed}
+                className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                  changed && !saving ? "bg-orange-500 text-white hover:bg-orange-600" : "bg-gray-100 text-gray-300"
+                }`}
+              >
+                {saving ? "保存中…" : "保存"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

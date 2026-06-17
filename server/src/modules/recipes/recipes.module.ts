@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Category } from '../categories/entities/category.entity';
 import { Ingredient } from '../ingredients/entities/ingredient.entity';
 import { User } from '../users/entities/user.entity';
+import { Favorite } from '../favorites/entities/favorite.entity';
 import { RecipeCategory } from './entities/recipe-category.entity';
 import { RecipeIngredient } from './entities/recipe-ingredient.entity';
 import { RecipeStep } from './entities/recipe-step.entity';
@@ -24,6 +25,7 @@ import { ScalingService } from './scaling.service';
       Category,
       Ingredient,
       User,
+      Favorite,
     ]),
   ],
   controllers: [RecipesController],

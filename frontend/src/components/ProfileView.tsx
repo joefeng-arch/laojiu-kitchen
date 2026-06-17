@@ -332,7 +332,7 @@ export default function ProfileView({ onNavigate }: ProfileViewProps) {
     } else if (action === "history") {
       setShowHistory(!showHistory);
     } else if (action === "favorites") {
-      onNavigate("home"); // switch to home's favorites tab
+      onNavigate("home-favorites"); // 跳到首页并切到「我收藏的」tab
     } else {
       alert(t('profile.featureComingSoon', { name: action }));
     }

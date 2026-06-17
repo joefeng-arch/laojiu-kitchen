@@ -69,6 +69,37 @@ export const adminTokenStore = {
   clear: () => localStorage.removeItem(ADMIN_TOKEN_KEY),
 };
 
+// ---------- 图片压缩（上传前缩放，避免手机大图超限 / 微信内容检查超 1MB） ----------
+async function compressImage(file: File, maxDim = 1280, quality = 0.85): Promise<File> {
+  // 非图片或 GIF（动图）不处理
+  if (!file.type.startsWith("image/") || file.type === "image/gif") return file;
+  // 已经很小（<300KB）就不折腾
+  if (file.size <= 300 * 1024) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    let { width, height } = bitmap;
+    if (width > maxDim || height > maxDim) {
+      const scale = Math.min(maxDim / width, maxDim / height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality),
+    );
+    if (!blob) return file;
+    const name = file.name.replace(/\.\w+$/, "") + ".jpg";
+    return new File([blob], name, { type: "image/jpeg" });
+  } catch {
+    return file; // 压缩失败回退原图
+  }
+}
+
 // ---------- request helper ----------
 interface ApiEnvelope<T> {
   code: number;
@@ -282,9 +313,10 @@ export const api = {
   },
 
   async getProfile(): Promise<UserProfile> {
-    const [u, recipesPage, favs, logsPage] = await Promise.all([
-      request<any>("/users/me"),
-      request<PaginatedResp<any>>("/recipes?pageSize=1").catch(() => ({ total: 0 } as any)),
+    // 先拿到当前用户，再按 authorId 统计「自己创建的」菜谱数（而非全站公开菜谱）
+    const u = await request<any>("/users/me");
+    const [recipesPage, favs, logsPage] = await Promise.all([
+      request<PaginatedResp<any>>(`/recipes?authorId=${encodeURIComponent(u.id)}&pageSize=1`).catch(() => ({ total: 0 } as any)),
       request<PaginatedResp<any>>("/favorites?pageSize=1").catch(() => ({ total: 0 } as any)),
       request<PaginatedResp<any>>("/cooking/logs?pageSize=1").catch(() => ({ total: 0 } as any)),
     ]);
@@ -637,8 +669,9 @@ export const api = {
 
   // Upload
   async uploadPhoto(file: File): Promise<{ url: string; width: number; height: number }> {
+    const compressed = await compressImage(file);
     const form = new FormData();
-    form.append("file", file);
+    form.append("file", compressed);
     const token = tokenStore.get();
     const res = await fetch(`${BASE_URL}/uploads/image`, {
       method: "POST",
@@ -866,6 +899,17 @@ export const adminApi = {
     });
   },
 
+  // ── Official user（老舅官方）────────────────────────────
+  async getOfficialUser(): Promise<{ id: string; nickname: string; avatar: string | null }> {
+    return adminRequest("/admin/official-user");
+  },
+  async setOfficialAvatar(avatar: string): Promise<{ id: string; nickname: string; avatar: string | null }> {
+    return adminRequest("/admin/official-user/avatar", {
+      method: "PATCH",
+      body: JSON.stringify({ avatar }),
+    });
+  },
+
   // ── Stats ───────────────────────────────────────────────
   async stats() {
     return adminRequest<{
@@ -985,8 +1029,9 @@ export const adminApi = {
 
   // ── Upload (reuse user upload endpoint with admin token) ──
   async uploadImage(file: File): Promise<string> {
+    const compressed = await compressImage(file);
     const fd = new FormData();
-    fd.append("file", file);
+    fd.append("file", compressed);
     const token = adminTokenStore.get();
     const res = await fetch(`${BASE_URL}/uploads/image`, {
       method: "POST",

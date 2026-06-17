@@ -1,5 +1,5 @@
 {
-  "miniprogramRoot": "dist/dev/mp-weixin/",
+  "miniprogramRoot": "dist/build/mp-weixin/",
   "setting": {
     "es6": true,
     "postcss": true,

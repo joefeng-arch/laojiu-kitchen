@@ -34,7 +34,14 @@ export default function App() {
   const [shoppingListResult, setShoppingListResult] = useState<any>(null);
   const [authReady, setAuthReady] = useState(false);
   const [importedRecipeData, setImportedRecipeData] = useState<ImportedRecipeData | null>(null);
+  const [homeInitialTab, setHomeInitialTab] = useState<"mine" | "favorites">("mine");
   const { t } = useTranslation();
+
+  // 个人页等跳转首页时可指定要打开的 tab（mine / favorites）
+  const goHome = (tab: "mine" | "favorites" = "mine") => {
+    setHomeInitialTab(tab);
+    setCurrentView("home");
+  };
 
   // ── Admin mode ────────────────────────────────────────────
   // Access via ?admin=1 in the URL
@@ -169,7 +176,7 @@ export default function App() {
   const handleSaveSuccess = () => {
     setEditRecipeId(null);
     setImportedRecipeData(null);
-    setCurrentView("home");
+    goHome("mine");
   };
 
   const handleEditRecipe = (id: string) => {
@@ -183,6 +190,7 @@ export default function App() {
       case "home":
         return (
           <HomeView
+            initialTab={homeInitialTab}
             onSelectRecipe={handleSelectRecipe}
             onNavigate={(v) => setCurrentView(v as ViewState)}
             onAddRecipe={() => setCurrentView("create")}
@@ -234,7 +242,14 @@ export default function App() {
       case "discover":
         return <DiscoverView onSelectRecipe={(id) => handleSelectRecipe(id, "discover")} />;
       case "profile":
-        return <ProfileView onNavigate={(v) => setCurrentView(v as ViewState)} />;
+        return (
+          <ProfileView
+            onNavigate={(v) => {
+              if (v === "home-favorites") goHome("favorites");
+              else setCurrentView(v as ViewState);
+            }}
+          />
+        );
       case "my-recipes":
         return (
           <MyRecipesView
@@ -304,7 +319,7 @@ export default function App() {
         <nav className="fixed bottom-0 left-0 w-full z-40 bg-white/94 backdrop-blur-md border-t border-gray-150/50 flex justify-around items-center py-2 px-4 shadow-lg">
           <div className="max-w-md w-full mx-auto flex justify-between items-center h-14">
             <button
-              onClick={() => setCurrentView("home")}
+              onClick={() => goHome("mine")}
               className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
                 currentView === "home" ? "text-[#ab3500]" : "text-gray-400 hover:text-[#ff6b35]"
               }`}

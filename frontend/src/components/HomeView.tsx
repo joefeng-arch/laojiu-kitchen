@@ -9,18 +9,19 @@ interface HomeViewProps {
   onNavigate: (view: string) => void;
   onAddRecipe: () => void;
   onImportRecipe?: () => void;
+  initialTab?: "mine" | "favorites";
 }
 
 type HomeTab = "mine" | "favorites";
 
-export default function HomeView({ onSelectRecipe, onNavigate, onAddRecipe, onImportRecipe }: HomeViewProps) {
+export default function HomeView({ onSelectRecipe, onNavigate, onAddRecipe, onImportRecipe, initialTab }: HomeViewProps) {
   const { t } = useTranslation();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [search, setSearch] = useState("");
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
-  const [homeTab, setHomeTab] = useState<HomeTab>("mine");
+  const [homeTab, setHomeTab] = useState<HomeTab>(initialTab ?? "mine");
   const [userId, setUserId] = useState<string | null>(null);
 
   // 批量管理模式
@@ -30,6 +31,11 @@ export default function HomeView({ onSelectRecipe, onNavigate, onAddRecipe, onIm
   // FAB 菜单
   const [fabMenuOpen, setFabMenuOpen] = useState(false);
   const fabMenuRef = useRef<HTMLDivElement>(null);
+
+  // 外部指定的 tab 变化时同步（如从个人页「我的收藏」跳转过来）
+  useEffect(() => {
+    setHomeTab(initialTab ?? "mine");
+  }, [initialTab]);
 
   // 点击 FAB 菜单外部关闭
   useEffect(() => {
@@ -138,6 +144,10 @@ export default function HomeView({ onSelectRecipe, onNavigate, onAddRecipe, onIm
   const handleToggleFavorite = async (e: React.MouseEvent, recipeId: string) => {
     e.stopPropagation();
     const isFav = favorites.includes(recipeId);
+    // 乐观更新收藏数
+    setRecipes((prev) => prev.map((r) => r.id === recipeId
+      ? { ...r, favoriteCount: Math.max(0, (r.favoriteCount ?? 0) + (isFav ? -1 : 1)) }
+      : r));
     try {
       if (isFav) {
         await api.removeFavorite(recipeId);
@@ -148,6 +158,10 @@ export default function HomeView({ onSelectRecipe, onNavigate, onAddRecipe, onIm
       }
     } catch (err) {
       console.error(err);
+      // 失败回滚
+      setRecipes((prev) => prev.map((r) => r.id === recipeId
+        ? { ...r, favoriteCount: Math.max(0, (r.favoriteCount ?? 0) + (isFav ? 1 : -1)) }
+        : r));
     }
   };
 

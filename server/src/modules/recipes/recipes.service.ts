@@ -9,6 +9,7 @@ import { paginate } from '../../common/dto/pagination.dto';
 import { Category } from '../categories/entities/category.entity';
 import { Ingredient } from '../ingredients/entities/ingredient.entity';
 import { User } from '../users/entities/user.entity';
+import { Favorite } from '../favorites/entities/favorite.entity';
 import {
   CreateRecipeDto,
   ListRecipesDto,
@@ -26,6 +27,8 @@ export interface RecipeWithExtras extends Recipe {
   author?: { id: string; nickname: string; avatar: string | null } | null;
   categories?: Array<{ id: number; name: string }>;
   categoryIds?: number[];
+  favoriteCount?: number;
+  isFavorited?: boolean;
 }
 
 @Injectable()
@@ -45,10 +48,12 @@ export class RecipesService {
     private readonly categories: Repository<Category>,
     @InjectRepository(User)
     private readonly users: Repository<User>,
+    @InjectRepository(Favorite)
+    private readonly favorites: Repository<Favorite>,
     private readonly ds: DataSource,
   ) {}
 
-  async list(query: ListRecipesDto) {
+  async list(query: ListRecipesDto, viewerId?: string | null) {
     const { page = 1, pageSize = 20, keyword, categoryId, mealSceneId, status, authorId, isPublic, isFeatured } = query;
     const where: Record<string, unknown> = {};
     if (mealSceneId) where.mealSceneId = mealSceneId;
@@ -81,13 +86,24 @@ export class RecipesService {
       take: pageSize,
     });
 
+    // 批量计算收藏数 + 当前用户是否已收藏（避免 N+1）
+    const ids = items.map((r) => r.id);
+    const favCounts = await this.favoriteCountsFor(ids);
+    const favedSet = await this.favoritedSetFor(viewerId, ids);
+
     const enriched = await Promise.all(
-      items.map((r) => this.enrichRecipe(r, { withIngredientNames: false })),
+      items.map((r) =>
+        this.enrichRecipe(r, {
+          withIngredientNames: false,
+          favoriteCount: favCounts.get(r.id) ?? 0,
+          isFavorited: favedSet.has(r.id),
+        }),
+      ),
     );
     return paginate(enriched, total, page, pageSize);
   }
 
-  async findOne(id: string): Promise<RecipeWithExtras> {
+  async findOne(id: string, viewerId?: string | null): Promise<RecipeWithExtras> {
     const recipe = await this.recipes.findOne({
       where: { id },
       relations: ['ingredients', 'steps'],
@@ -95,7 +111,40 @@ export class RecipesService {
     if (!recipe) throw new NotFoundException('Recipe not found');
     recipe.ingredients.sort((a, b) => a.sort - b.sort || a.id - b.id);
     recipe.steps.sort((a, b) => a.stepNumber - b.stepNumber);
-    return this.enrichRecipe(recipe, { withIngredientNames: true });
+    const favoriteCount = await this.favorites.count({ where: { recipeId: id } });
+    const isFavorited = viewerId
+      ? (await this.favorites.count({ where: { userId: viewerId, recipeId: id } })) > 0
+      : false;
+    return this.enrichRecipe(recipe, {
+      withIngredientNames: true,
+      favoriteCount,
+      isFavorited,
+    });
+  }
+
+  /** 批量统计每个菜谱的收藏数 */
+  private async favoriteCountsFor(recipeIds: string[]): Promise<Map<string, number>> {
+    if (!recipeIds.length) return new Map();
+    const rows = await this.favorites
+      .createQueryBuilder('f')
+      .select('f.recipeId', 'recipeId')
+      .addSelect('COUNT(*)', 'cnt')
+      .where('f.recipeId IN (:...ids)', { ids: recipeIds })
+      .groupBy('f.recipeId')
+      .getRawMany<{ recipeId: string; cnt: string }>();
+    return new Map(rows.map((r) => [r.recipeId, parseInt(r.cnt, 10)]));
+  }
+
+  /** 当前用户在这批菜谱里收藏了哪些 */
+  private async favoritedSetFor(
+    viewerId: string | null | undefined,
+    recipeIds: string[],
+  ): Promise<Set<string>> {
+    if (!viewerId || !recipeIds.length) return new Set();
+    const hits = await this.favorites.find({
+      where: { userId: viewerId, recipeId: In(recipeIds) },
+    });
+    return new Set(hits.map((h) => h.recipeId));
   }
 
   async create(authorId: string, dto: CreateRecipeDto): Promise<RecipeWithExtras> {
@@ -228,9 +277,17 @@ export class RecipesService {
 
   private async enrichRecipe(
     recipe: Recipe,
-    opts: { withIngredientNames: boolean },
+    opts: {
+      withIngredientNames: boolean;
+      favoriteCount?: number;
+      isFavorited?: boolean;
+    },
   ): Promise<RecipeWithExtras> {
     const out = recipe as RecipeWithExtras;
+
+    // favorites（收藏数 / 当前用户是否已收藏）
+    out.favoriteCount = opts.favoriteCount ?? 0;
+    out.isFavorited = opts.isFavorited ?? false;
 
     // author
     const author = await this.users.findOne({ where: { id: recipe.authorId } });
