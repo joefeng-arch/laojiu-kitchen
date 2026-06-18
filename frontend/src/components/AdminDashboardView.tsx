@@ -524,6 +524,56 @@ function RecipeDetailModal({ id, onClose, onEdit }: { id: string; onClose: () =>
   );
 }
 
+// ── 菜谱分类多选（管理后台共用）─────────────────────────────
+function RecipeCategoryPicker({
+  value,
+  onChange,
+}: {
+  value: number[];
+  onChange: (ids: number[]) => void;
+}) {
+  const [cats, setCats] = useState<{ id: number; name: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    adminApi
+      .listCategories({ type: "recipe", pageSize: 100 })
+      .then((res) => setCats((res.items ?? []).map((c: any) => ({ id: c.id, name: c.name }))))
+      .catch((e) => console.error("加载分类失败", e))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = (cid: number) => {
+    onChange(value.includes(cid) ? value.filter((x) => x !== cid) : [...value, cid]);
+  };
+
+  if (loading) return <p className="text-xs text-gray-400">加载分类中…</p>;
+  if (cats.length === 0)
+    return <p className="text-xs text-gray-400">暂无菜谱分类，请先到「分类管理」创建</p>;
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {cats.map((c) => {
+        const active = value.includes(c.id);
+        return (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => toggle(c.id)}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+              active
+                ? "bg-orange-500 text-white border-orange-500"
+                : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
+            }`}
+          >
+            {c.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Recipe Edit Modal ───────────────────────────────────────
 function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => void; onSaved: () => void }) {
   const [loading, setLoading] = useState(true);
@@ -532,6 +582,7 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
   const [form, setForm] = useState<any>({});
   const [ingredients, setIngredients] = useState<any[]>([]);
   const [steps, setSteps] = useState<any[]>([]);
+  const [categoryIds, setCategoryIds] = useState<number[]>([]);
 
   useEffect(() => {
     adminApi.getRecipeDetail(id).then((d) => {
@@ -542,6 +593,7 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
         tags: (d.tags ?? []).join(", "),
         coverImage: d.coverImage ?? "",
       });
+      setCategoryIds((d.categories ?? []).map((c: any) => c.id));
       setIngredients((d.ingredients ?? []).map((i: any) => ({
         ingredientId: i.ingredientId ?? null,
         customName: i.customName ?? i.ingredientName ?? i.name ?? "",
@@ -591,6 +643,7 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
         status: form.status, isFeatured: form.isFeatured, isPublic: form.isPublic,
         coverImage: form.coverImage || undefined,
         tags: form.tags ? form.tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
+        categoryIds,
         ingredients: ingredients.filter(i => i.customName.trim()).map((i, idx) => ({
           ingredientId: i.ingredientId ?? undefined,
           customName: i.customName, amount: String(i.amount), unit: i.unit,
@@ -649,6 +702,9 @@ function RecipeEditModal({ id, onClose, onSaved }: { id: string; onClose: () => 
                 <FormField label="推荐"><input type="checkbox" checked={form.isFeatured} onChange={(e) => setForm({ ...form, isFeatured: e.target.checked })} /></FormField>
               </div>
               <FormField label="标签（逗号分隔）"><input className="form-input" value={form.tags ?? ""} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></FormField>
+              <FormField label="菜谱分类（可多选，决定在发现页归入哪些分类）">
+                <RecipeCategoryPicker value={categoryIds} onChange={setCategoryIds} />
+              </FormField>
 
               {/* 用料 */}
               <div>
@@ -750,6 +806,7 @@ function CreateRecipeTab({ onDone }: { onDone: () => void }) {
   const [saving, setSaving] = useState(false);
   const [skipCheck, setSkipCheck] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [categoryIds, setCategoryIds] = useState<number[]>([]);
 
   // ── AI import state ──────────────────────────────────────
   const [aiText, setAiText] = useState("");
@@ -804,6 +861,7 @@ function CreateRecipeTab({ onDone }: { onDone: () => void }) {
         coverImage: form.coverImage || undefined, difficulty: form.difficulty as any,
         baseServings: form.baseServings, totalMinutes: form.totalMinutes || undefined,
         tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
+        categoryIds,
         ingredients: ingredients.filter(i => i.customName.trim()).map((i, idx) => ({ customName: i.customName, amount: String(i.amount), unit: i.unit, scaleType: i.scaleType, groupName: i.groupName, sort: idx })),
         steps: steps.filter(s => s.description.trim()).map((s, idx) => ({ stepNumber: idx + 1, description: s.description, tips: s.tips || undefined })),
       });
@@ -976,6 +1034,9 @@ function CreateRecipeTab({ onDone }: { onDone: () => void }) {
             </FormField>
             <FormField label="标签（逗号分隔）" className="col-span-2">
               <input className="form-input" placeholder="如：家常菜,下饭" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+            </FormField>
+            <FormField label="菜谱分类（可多选，决定在发现页归入哪些分类）" className="col-span-2">
+              <RecipeCategoryPicker value={categoryIds} onChange={setCategoryIds} />
             </FormField>
           </div>
 
