@@ -175,17 +175,16 @@ export default function DiscoverView({ onSelectRecipe }: DiscoverViewProps) {
             <p className="text-sm font-medium">{t('discover.empty')}</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 items-start">
-            {recipes.map((recipe, idx) => {
+          <div className="grid grid-cols-2 gap-3 items-stretch">
+            {recipes.map((recipe) => {
               const isFav = favorites.includes(recipe.id);
-              const isTall = idx % 3 === 0;
               return (
                 <div
                   key={recipe.id}
                   onClick={() => onSelectRecipe(recipe.id)}
                   className="bg-white rounded-2xl overflow-hidden shadow-tactile hover:shadow-tactile-hover transition-all duration-200 flex flex-col group border border-gray-50/50 cursor-pointer"
                 >
-                  <div className={`relative ${isTall ? "aspect-[3/4]" : "aspect-[3/2]"} overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50`}>
+                  <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50">
                     {recipe.coverImageUrl ? (
                       <img
                         src={recipe.coverImageUrl}
@@ -209,12 +208,12 @@ export default function DiscoverView({ onSelectRecipe }: DiscoverViewProps) {
                     </span>
                   </div>
 
-                  <div className="p-3 flex flex-col gap-2">
-                    <h3 className="font-display text-xs font-bold text-gray-800 line-clamp-2 leading-tight">
+                  <div className="p-3 flex flex-col gap-2 flex-1">
+                    <h3 className="font-display text-xs font-bold text-gray-800 line-clamp-2 leading-tight min-h-[2rem]">
                       {recipe.title}
                     </h3>
 
-                    <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-col gap-1.5 mt-auto">
                       {recipe.author && (
                         <div className="flex items-center gap-1.5">
                           {recipe.author.avatarUrl ? (
