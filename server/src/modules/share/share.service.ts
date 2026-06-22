@@ -123,9 +123,11 @@ export class ShareService {
 
     const body = JSON.stringify({
       scene: shortCode,
-      page: 'pages/index/index',
+      // 小程序唯一真实页面是 web-view 壳 pages/shell/shell（pages/index/index 不存在 → 41030）
+      page: 'pages/shell/shell',
       width: 280,
-      env_version: 'release',
+      // 体验版用 'trial'，正式版用 'release'，由环境变量控制
+      env_version: this.config.get<string>('WX_ENV_VERSION', 'release'),
       is_hyaline: false,
     });
 

@@ -290,25 +290,16 @@ export default function ProfileView({ onNavigate }: ProfileViewProps) {
   };
 
   const handleShare = () => {
-    // 小程序环境：调用 wx.shareAppMessage
-    if (typeof (window as any).wx !== "undefined" && (window as any).wx.miniProgram) {
-      try {
-        (window as any).wx.miniProgram.postMessage({
-          data: {
-            type: "share",
-            title: t('profile.share.title'),
-            path: "/pages/index/index",
-            imageUrl: "",
-          },
-        });
-        // 在小程序 web-view 中，真正的分享需要用户点右上角 ⋯ 分享按钮
-        alert(t('profile.share.wxHint'));
-      } catch {
-        fallbackShare();
-      }
-    } else {
-      fallbackShare();
+    // 微信小程序 web-view 内：无法用 JS 直接拉起转发，必须引导用户点右上角「···」
+    const inMiniProgram =
+      (window as any).__wxjs_environment === "miniprogram" ||
+      (typeof (window as any).wx !== "undefined" && (window as any).wx.miniProgram);
+    if (inMiniProgram) {
+      alert(t('profile.share.wxHint'));
+      return;
     }
+    // 普通浏览器 / H5：用 Web Share API 或复制链接
+    fallbackShare();
   };
 
   const fallbackShare = () => {

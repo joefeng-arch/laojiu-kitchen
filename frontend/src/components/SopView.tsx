@@ -10,9 +10,10 @@ interface SopViewProps {
   recipeId: string;
   targetServings: number;
   onExit: () => void;
+  onGoShopping?: (recipeId: string, servings: number) => void;
 }
 
-export default function SopView({ recipeId, targetServings, onExit }: SopViewProps) {
+export default function SopView({ recipeId, targetServings, onExit, onGoShopping }: SopViewProps) {
   const { t } = useTranslation();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -435,8 +436,8 @@ export default function SopView({ recipeId, targetServings, onExit }: SopViewPro
               <button
                 onClick={() => {
                   setShowShortageModal(false);
-                  onExit();
-                  // 简化：直接退出回 detail；用户可去食材库
+                  if (onGoShopping) onGoShopping(recipeId, targetServings);
+                  else onExit();
                 }}
                 className="flex-1 py-3 rounded-full border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50"
               >

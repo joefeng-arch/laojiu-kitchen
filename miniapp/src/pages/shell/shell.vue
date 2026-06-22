@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
+import { onLoad, onShareAppMessage, onShareTimeline } from "@dcloudio/uni-app";
 
 // ── 环境变量注入（.env.development / .env.production）─────────
 const info = uni.getSystemInfoSync();
@@ -69,6 +70,31 @@ const showConsent = ref(false);
 const webUrl = ref<string>("");
 const status = ref<string>("正在登录…");
 const failed = ref(false);
+
+// 扫码进入时携带的 scene（分享菜谱二维码 → 深链到详情页）
+const sceneParam = ref<string>("");
+
+// onLoad 早于 onMounted：捕获扫码/转发带来的 scene 参数
+onLoad((query: Record<string, string> | undefined) => {
+  if (query?.scene) {
+    try {
+      sceneParam.value = decodeURIComponent(query.scene);
+    } catch {
+      sceneParam.value = query.scene;
+    }
+  }
+});
+
+// 「···」转发给朋友
+onShareAppMessage(() => ({
+  title: "老舅厨房 — 把家的味道记录下来",
+  path: "/pages/shell/shell",
+}));
+
+// 「···」分享到朋友圈
+onShareTimeline(() => ({
+  title: "老舅厨房 — 把家的味道记录下来",
+}));
 
 function checkConsent(): boolean {
   try {
@@ -99,9 +125,15 @@ function openPolicy(type: "privacy-policy" | "user-agreement") {
 }
 
 // ── 微信登录 & Token 换取 ──────────────────────────────────────
+function appendScene(url: string): string {
+  if (!sceneParam.value) return url;
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}scene=${encodeURIComponent(sceneParam.value)}`;
+}
+
 function buildUrl(token: string): string {
   const sep = H5_BASE_URL.includes("?") ? "&" : "?";
-  return `${H5_BASE_URL}${sep}token=${encodeURIComponent(token)}`;
+  return appendScene(`${H5_BASE_URL}${sep}token=${encodeURIComponent(token)}`);
 }
 
 async function wxLogin(): Promise<string> {
@@ -144,7 +176,7 @@ async function bootstrap() {
 
   // 模拟器里跳过微信登录，直接加载 H5
   if (isDevtools) {
-    webUrl.value = H5_BASE_URL;
+    webUrl.value = appendScene(H5_BASE_URL);
     return;
   }
 

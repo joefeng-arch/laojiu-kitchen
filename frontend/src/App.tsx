@@ -233,6 +233,16 @@ export default function App() {
             recipeId={selectedRecipeId}
             targetServings={targetServings}
             onExit={() => setCurrentView("detail")}
+            onGoShopping={async (rid, servings) => {
+              try {
+                const result = await api.generateShoppingList([{ recipeId: rid, servings }]);
+                setShoppingListResult(result);
+                setCurrentView("shopping-list");
+              } catch (e: any) {
+                alert(e?.message ?? "生成采购清单失败");
+                setCurrentView("detail");
+              }
+            }}
           />
         ) : null;
       case "timers":
