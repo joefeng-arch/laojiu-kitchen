@@ -35,6 +35,40 @@
       </view>
     </view>
 
+    <!-- ── 完善资料（首次登录采集微信头像 + 昵称）──────────────── -->
+    <view v-else-if="showProfileSetup" class="consent-mask">
+      <view class="consent-card">
+        <view class="consent-header">
+          <text class="consent-app-name">完善个人资料</text>
+        </view>
+        <text class="consent-body">设置你的头像和昵称，让老舅厨房更懂你～</text>
+
+        <!-- 微信头像选择（官方头像昵称填写能力）-->
+        <button class="avatar-btn" open-type="chooseAvatar" @chooseavatar="onChooseAvatar">
+          <image v-if="avatarPath" :src="avatarPath" class="avatar-img" mode="aspectFill" />
+          <view v-else class="avatar-placeholder">
+            <text class="avatar-plus">＋</text>
+            <text class="avatar-tip">选择头像</text>
+          </view>
+        </button>
+
+        <!-- 微信昵称填写 -->
+        <input
+          class="nickname-input"
+          type="nickname"
+          placeholder="点击填写昵称"
+          :value="nickname"
+          @input="onNicknameInput"
+          @blur="onNicknameInput"
+        />
+
+        <button class="btn-agree" :disabled="savingProfile" @tap="completeSetup">
+          {{ savingProfile ? "保存中…" : "完成" }}
+        </button>
+        <button class="btn-decline" @tap="skipSetup">暂不设置</button>
+      </view>
+    </view>
+
     <!-- ── 主内容区（同意后展示）──────────────────────────────── -->
     <template v-else>
       <web-view v-if="webUrl" :src="webUrl" @error="onWebError" />
@@ -73,6 +107,15 @@ const failed = ref(false);
 
 // 扫码进入时携带的 scene（分享菜谱二维码 → 深链到详情页）
 const sceneParam = ref<string>("");
+
+// ── 完善资料状态 ──────────────────────────────────────────────
+const PROFILE_SETUP_KEY = "profile_setup_v1";
+const showProfileSetup = ref(false);
+const avatarPath = ref<string>(""); // 微信返回的临时头像路径
+const nickname = ref<string>("");
+const savingProfile = ref(false);
+let authToken = ""; // 缓存换到的用户 token
+const API_ORIGIN = API_BASE_URL.replace(/\/api\/?$/, "");
 
 // onLoad 早于 onMounted：捕获扫码/转发带来的 scene 参数
 onLoad((query: Record<string, string> | undefined) => {
@@ -184,13 +227,119 @@ async function bootstrap() {
   try {
     const code = await wxLogin();
     status.value = "正在换取 token…";
-    const token = await exchangeToken(code);
+    authToken = await exchangeToken(code);
+
+    // 首次登录：引导填写微信头像 + 昵称
+    if (await needsProfileSetup()) {
+      showProfileSetup.value = true;
+      return; // 等用户填完/跳过后再加载 H5
+    }
+
     status.value = "登录成功，加载中…";
-    webUrl.value = buildUrl(token);
+    webUrl.value = buildUrl(authToken);
   } catch (e: any) {
     status.value = e?.message || "登录失败";
     failed.value = true;
   }
+}
+
+// ── 完善资料：判断是否需要提示 ─────────────────────────────────
+async function needsProfileSetup(): Promise<boolean> {
+  try {
+    if (uni.getStorageSync(PROFILE_SETUP_KEY) === "true") return false;
+  } catch { /* ignore */ }
+  return new Promise((resolve) => {
+    uni.request({
+      url: `${API_BASE_URL}/users/me`,
+      method: "GET",
+      header: { Authorization: `Bearer ${authToken}` },
+      success: (res: any) => {
+        const u = res?.data?.data ?? res?.data ?? {};
+        // 仍是默认昵称且无头像 → 视为未设置
+        const isDefault = (!u.nickname || u.nickname === "吃货") && !u.avatar;
+        resolve(Boolean(isDefault));
+      },
+      fail: () => resolve(false),
+    });
+  });
+}
+
+function onChooseAvatar(e: any) {
+  const url = e?.detail?.avatarUrl;
+  if (url) avatarPath.value = url;
+}
+
+function onNicknameInput(e: any) {
+  nickname.value = e?.detail?.value ?? nickname.value;
+}
+
+function uploadAvatar(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: `${API_BASE_URL}/uploads/image`,
+      filePath,
+      name: "file",
+      header: { Authorization: `Bearer ${authToken}` },
+      success: (res) => {
+        try {
+          const body = JSON.parse(res.data);
+          const rel = body?.data?.url;
+          if (rel) resolve(`${API_ORIGIN}${rel}`);
+          else reject(new Error(body?.message || "头像上传失败"));
+        } catch {
+          reject(new Error("头像上传响应解析失败"));
+        }
+      },
+      fail: (err) => reject(new Error(err?.errMsg || "头像上传失败")),
+    });
+  });
+}
+
+function patchProfile(data: { nickname?: string; avatar?: string }): Promise<void> {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: `${API_BASE_URL}/users/me`,
+      method: "PATCH",
+      data,
+      header: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+      success: () => resolve(),
+      fail: (err) => reject(new Error(err?.errMsg || "保存失败")),
+    });
+  });
+}
+
+function finishSetup() {
+  try { uni.setStorageSync(PROFILE_SETUP_KEY, "true"); } catch { /* ignore */ }
+  showProfileSetup.value = false;
+  webUrl.value = buildUrl(authToken);
+}
+
+async function completeSetup() {
+  if (savingProfile.value) return;
+  savingProfile.value = true;
+  try {
+    const payload: { nickname?: string; avatar?: string } = {};
+    if (nickname.value.trim()) payload.nickname = nickname.value.trim();
+    if (avatarPath.value) {
+      try {
+        payload.avatar = await uploadAvatar(avatarPath.value);
+      } catch (e: any) {
+        uni.showToast({ title: e?.message || "头像上传失败", icon: "none" });
+      }
+    }
+    if (Object.keys(payload).length > 0) {
+      await patchProfile(payload);
+    }
+  } catch (e: any) {
+    uni.showToast({ title: e?.message || "保存失败", icon: "none" });
+  } finally {
+    savingProfile.value = false;
+    finishSetup();
+  }
+}
+
+function skipSetup() {
+  finishSetup();
 }
 
 function onWebError(e: any) {
@@ -325,6 +474,62 @@ onMounted(() => {
 
 .btn-decline::after {
   border: none;
+}
+
+/* ── 头像 / 昵称 ── */
+.avatar-btn {
+  width: 160rpx;
+  height: 160rpx;
+  padding: 0;
+  margin-bottom: 28rpx;
+  border-radius: 50%;
+  background: #f3f4f6;
+  border: 2rpx solid #e5e7eb;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-btn::after {
+  border: none;
+}
+
+.avatar-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+}
+
+.avatar-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+
+.avatar-plus {
+  font-size: 48rpx;
+  line-height: 1;
+}
+
+.avatar-tip {
+  font-size: 22rpx;
+  margin-top: 8rpx;
+}
+
+.nickname-input {
+  width: 100%;
+  height: 88rpx;
+  background: #f9fafb;
+  border: 2rpx solid #e5e7eb;
+  border-radius: 16rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #1f2937;
+  margin-bottom: 32rpx;
+  box-sizing: border-box;
 }
 
 /* ── 启动等待页 ── */
