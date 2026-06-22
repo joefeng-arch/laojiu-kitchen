@@ -38,11 +38,29 @@ export class ShareService {
     if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
   }
 
+  /** Redis 故障时不影响分享：读/写失败都忽略 */
+  private async cacheGet(key: string): Promise<string | null> {
+    try {
+      return ((await this.cache.get(key)) as string | undefined) ?? null;
+    } catch (e) {
+      this.logger.warn(`cache get 失败（忽略）: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  private async cacheSet(key: string, val: string, ttl: number): Promise<void> {
+    try {
+      await this.cache.set(key, val, ttl);
+    } catch (e) {
+      this.logger.warn(`cache set 失败（忽略）: ${(e as Error).message}`);
+    }
+  }
+
   // ─── Generate QR Code ───────────────────────────────────────
   async generateQrcode(recipeId: string): Promise<{ qrcodeUrl: string; scene: string }> {
     // Check cache first
     const cacheKey = `qrcode:${recipeId}`;
-    const cached = await this.cache.get(cacheKey);
+    const cached = await this.cacheGet(cacheKey);
     if (cached) {
       try {
         return JSON.parse(cached);
@@ -71,7 +89,7 @@ export class ShareService {
     // If QR was already generated (has url but cache expired), return it
     if (shareCode.qrcodeUrl) {
       const result = { qrcodeUrl: shareCode.qrcodeUrl, scene: shareCode.shortCode };
-      await this.cache.set(cacheKey, JSON.stringify(result), QRCODE_CACHE_TTL);
+      await this.cacheSet(cacheKey, JSON.stringify(result), QRCODE_CACHE_TTL);
       return result;
     }
 
@@ -82,7 +100,7 @@ export class ShareService {
     await this.shareCodeRepo.update(shareCode.id, { qrcodeUrl });
 
     const result = { qrcodeUrl, scene: shareCode.shortCode };
-    await this.cache.set(cacheKey, JSON.stringify(result), QRCODE_CACHE_TTL);
+    await this.cacheSet(cacheKey, JSON.stringify(result), QRCODE_CACHE_TTL);
 
     return result;
   }

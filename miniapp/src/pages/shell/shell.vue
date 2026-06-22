@@ -348,6 +348,11 @@ function onWebError(e: any) {
 
 // ── 启动 ──────────────────────────────────────────────────────
 onMounted(() => {
+  // 显式开启右上角「转发给朋友 / 分享到朋友圈」菜单
+  try {
+    uni.showShareMenu({ withShareTicket: true, menus: ["shareAppMessage", "shareTimeline"] });
+  } catch { /* ignore */ }
+
   if (checkConsent()) {
     // 已同意过，直接进入
     bootstrap();

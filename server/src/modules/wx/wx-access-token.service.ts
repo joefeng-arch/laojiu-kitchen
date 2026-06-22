@@ -24,9 +24,27 @@ export class WxAccessTokenService {
    * 获取微信 access_token，结果缓存到 Redis。
    * 开发环境（ALLOW_MOCK_LOGIN=true）或未配置凭证时抛出友好错误。
    */
+  /** Redis 故障时不影响主流程：读失败返回 null，写失败忽略 */
+  private async cacheGet(key: string): Promise<string | null> {
+    try {
+      return ((await this.cache.get(key)) as string | undefined) ?? null;
+    } catch (e) {
+      this.logger.warn(`cache get 失败（忽略）: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  private async cacheSet(key: string, val: string, ttlMs: number): Promise<void> {
+    try {
+      await this.cache.set(key, val, ttlMs);
+    } catch (e) {
+      this.logger.warn(`cache set 失败（忽略）: ${(e as Error).message}`);
+    }
+  }
+
   async getAccessToken(): Promise<string> {
-    const cached = await this.cache.get(ACCESS_TOKEN_KEY);
-    if (cached) return cached as string;
+    const cached = await this.cacheGet(ACCESS_TOKEN_KEY);
+    if (cached) return cached;
 
     const appid = this.config.get<string>('WX_APPID') ?? '';
     const secret = this.config.get<string>('WX_SECRET') ?? '';
@@ -60,7 +78,7 @@ export class WxAccessTokenService {
         );
       }
 
-      await this.cache.set(ACCESS_TOKEN_KEY, data.access_token, ACCESS_TOKEN_TTL_MS);
+      await this.cacheSet(ACCESS_TOKEN_KEY, data.access_token, ACCESS_TOKEN_TTL_MS);
       this.logger.log('wx access_token 已刷新并缓存');
       return data.access_token;
     } catch (err) {
